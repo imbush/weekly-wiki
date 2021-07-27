@@ -1,2 +1,2 @@
 # weekly-wiki
-Topic-Based Random Wikipedia Article Selection
+Topic-based random Wikipedia article selection
