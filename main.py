@@ -3,6 +3,7 @@ import json
 import email
 import imaplib
 
+
 def main():
     """
     Functions:
@@ -35,11 +36,14 @@ def update_json(from_email: str, from_password: str, json_name: str):
     email_json = json_data(json_name)
 
     # Get emails since last update
-    last_update = email_json.emails['last_update']
+    last_update = email_json.last_update
     mail = imaplib.IMAP4_SSL(SMTP_SERVER)
     mail.login(from_email, from_password)
     mail.select('inbox')
+    
+    # Process emails through email_json
 
+    # Change last update and record changes in .json file
     email_json.change_last_update(str(datetime.now()))
     email_json.update_json()
 
@@ -50,11 +54,17 @@ def send_emails(from_email: str, from_password: str, json_name: str):
         1. For each subscriber, select weekly post.
         2. Send formatted email with link to wiki.
     """
-    pass
+    email_json = json_data(json_name)
+
+    for email, topic in email_json.email_dict:
+        # Get email, send email
+        pass
 
 
 class json_data:
     def __init__(self, json_name: str):
+        self.json_name = json_name
+
         a_file = open(json_name, "r")
         json_dict = json.load(a_file)
         self.last_update = json_dict['last_update']
@@ -65,7 +75,8 @@ class json_data:
         self.last_update = new_date
 
     def add_email(self, to_email: str, topic="all"):
-        if to_email in self.email_dict:
+        """Adds email if not yet subscribed."""
+        if to_email not in self.email_dict:
             self.email_dict[to_email] = {"topic": topic}
 
     def remove_email(self, to_email: str):
@@ -79,7 +90,7 @@ class json_data:
     def update_json(self):
         json_dict = {
                         'last_update': self.last_update,
-                        'subscriber_list': self.email_list}
+                        'subscriber_list': self.email_dict}
 
         a_file = open(self.json_name, "w")
         json.dump(json_dict, a_file)
@@ -87,4 +98,5 @@ class json_data:
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    pass
