@@ -34,14 +34,18 @@ def update_json(from_email: str, from_password: str, json_name: str):
         3. Update date and time in JSON file.
     """
     email_json = json_data(json_name)
+    last_update = email_json.last_update
 
     # Get emails since last update
-    last_update = email_json.last_update
-    mail = imaplib.IMAP4_SSL(SMTP_SERVER)
-    mail.login(from_email, from_password)
-    mail.select('inbox')
-    
-    # Process emails through email_json
+    for subscriber_email, email_subject, email_contents in get_emails(from_email, from_password):
+        if email_subject.strip().lower() == "subscribe":
+            email_json.add_email(subscriber_email)
+        elif email_subject.strip().lower() == "unsubscribe":
+            email_json.remove_email(subscriber_email)
+        elif email_subject.strip().lower() == "topic":
+            email_json.change_topic(subscriber_email, email_contents)
+        else:
+            print("No Action:", subscriber_email, "")
 
     # Change last update and record changes in .json file
     email_json.change_last_update(str(datetime.now()))
@@ -59,6 +63,29 @@ def send_emails(from_email: str, from_password: str, json_name: str):
     for email, topic in email_json.email_dict:
         # Get email, send email
         pass
+
+
+def get_new_emails(from_email: str, from_password: str, since_id: int):
+    SMTP_SERVER = "imap.gmail.com"
+    SMTP_PORT = 993
+    imap_server = imaplib.IMAP4_SSL(SMTP_SERVER)
+
+    imap_server.login(from_email, from_password)
+    imap_server.select('INBOX')
+
+    _, message_numbers_raw = imap_server.search(None, 'ALL')
+    for message_number in message_numbers_raw[0].split():
+        _, msg = imap_server.fetch(message_number, '(RFC822)')
+
+        # Parse the raw email message in to a convenient object
+        message = email.message_from_bytes(msg[0][1])
+        if message.is_multipart():
+            multipart_payload = message.get_payload()
+            for sub_message in multipart_payload:
+                if sub_message.get_content_type().strip() == "text/html":
+                    yield(message["from"], message['subject'], sub_message.get_payload())
+        else:  # Not a multipart message, payload is simple string
+            yield(message["from"], message['subject'], message.get_payload())
 
 
 class json_data:
@@ -99,4 +126,3 @@ class json_data:
 
 if __name__ == "__main__":
     # main()
-    pass
