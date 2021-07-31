@@ -1,7 +1,10 @@
 from datetime import datetime
+from email.message import EmailMessage
 import json
 import email
 import imaplib
+import smtplib
+import ssl
 
 
 def main():
@@ -12,6 +15,7 @@ def main():
         3. Sends wiki article.
     """
     json_name = "emails.json"
+    # message_markdown = "message.md"
     from_email = input("Email: ").strip()
     from_password = input("Password: ").strip()
     if input("Would you like to proceed with " + from_email + " (y,n): ").strip() == "n":
@@ -34,10 +38,10 @@ def update_json(from_email: str, from_password: str, json_name: str):
         3. Update date and time in JSON file.
     """
     email_json = json_data(json_name)
-    last_update = email_json.last_update
+    last_update_id = email_json.last_update
 
     # Get emails since last update
-    for subscriber_email, email_subject, email_contents in get_emails(from_email, from_password):
+    for subscriber_email, email_subject, email_contents in get_new_emails(from_email, from_password, last_update_id):
         if email_subject.strip().lower() == "subscribe":
             email_json.add_email(subscriber_email)
         elif email_subject.strip().lower() == "unsubscribe":
@@ -45,7 +49,8 @@ def update_json(from_email: str, from_password: str, json_name: str):
         elif email_subject.strip().lower() == "topic":
             email_json.change_topic(subscriber_email, email_contents)
         else:
-            print("No Action:", subscriber_email, "")
+            print("No Action:", subscriber_email,
+                  "sent email with subject", email_subject)
 
     # Change last update and record changes in .json file
     email_json.change_last_update(str(datetime.now()))
@@ -60,12 +65,53 @@ def send_emails(from_email: str, from_password: str, json_name: str):
     """
     email_json = json_data(json_name)
 
-    for email, topic in email_json.email_dict:
-        # Get email, send email
+    wiki_link_list = list()  # Contains (email, wiki_link) tuples
+    for to_email, topic in email_json.email_dict:
+        wiki_link_list.append((to_email, find_wiki_page(topic)))
+
+    display_name = "Weekly Wiki"
+    port = 465  # For SSL
+    host = "smtp.gmail.com"
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(host=host, port=port, context=context) as server:
+        server.login(from_email, from_password)
+        for to_email, wiki_link in wiki_link_list:
+            msg = EmailMessage()
+
+            msg["Subject"] = "Your Weekly Wiki!"
+            msg["From"] = display_name + f' <{from_email}>'
+            msg["To"] = to_email
+            msg.set_content(format_msg(wiki_link), subtype="html")
+
+            server.sendmail(from_email, to_email, msg)
+            print("Sent email to " + to_email + " about:\n" + wiki_link + "\n")
+
+
+def format_msg(wiki_link: str):
+    """Return html formatted email content."""
+    contents = f'''
+    <!DOCTYPE html>
+    <html>
+        <body>
+            <div style="text-align:center;">
+                <h1>Your Weekly Article:</h1>
+                <a href="{wiki_link}">{wiki_link}</a>
+            </div>
+        </body>
+    </html>
+    '''
+    return contents
+
+
+def find_wiki_page(topic: str):
+    # If all, use random_page function from api
+    if topic == "all":
+        pass
+    else:
         pass
 
 
-def get_new_emails(from_email: str, from_password: str, since_id: int):
+def get_new_emails(from_email: str, from_password: str, last_update_id: int):
     SMTP_SERVER = "imap.gmail.com"
     SMTP_PORT = 993
     imap_server = imaplib.IMAP4_SSL(SMTP_SERVER)
@@ -81,9 +127,11 @@ def get_new_emails(from_email: str, from_password: str, since_id: int):
         message = email.message_from_bytes(msg[0][1])
         if message.is_multipart():
             multipart_payload = message.get_payload()
+            message_contents = ""
             for sub_message in multipart_payload:
                 if sub_message.get_content_type().strip() == "text/html":
-                    yield(message["from"], message['subject'], sub_message.get_payload())
+                    message_contents.append(sub_message.get_payload())
+            yield(message["from"], message['subject'], message_contents)
         else:  # Not a multipart message, payload is simple string
             yield(message["from"], message['subject'], message.get_payload())
 
@@ -125,4 +173,4 @@ class json_data:
 
 
 if __name__ == "__main__":
-    # main()
+    main()
