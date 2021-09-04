@@ -5,6 +5,7 @@ import email
 import imaplib
 import smtplib
 import ssl
+import requests
 
 
 def main():
@@ -15,7 +16,6 @@ def main():
         3. Sends wiki article.
     """
     json_name = "emails.json"
-    # message_markdown = "message.md"
     from_email = input("Email: ").strip()
     from_password = input("Password: ").strip()
     if input("Would you like to proceed with " + from_email + " (y,n): ").strip() == "n":
@@ -104,10 +104,11 @@ def format_msg(wiki_link: str):
 
 
 def find_wiki_page(topic: str):
-    # If all, use random_page function from api
     if topic == "all":
+        # Use random_page function from api. Check that page is an article and not discussion etc.
         pass
     else:
+        # Access user's page list
         pass
 
 
